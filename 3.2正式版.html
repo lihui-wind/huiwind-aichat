@@ -1,0 +1,3154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI chat 碳酸钾</title>
+    <style>
+        /* ========== 全局CSS变量 ========== */
+        :root {
+            --primary-color: #10a37f;
+            --primary-light: rgba(16, 163, 127, 0.12);
+            --bg-color: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: #1a1a1a;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --input-bg: #f9fafb;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.08);
+            
+            --bubble-user-bg: var(--primary-color);
+            --bubble-user-text: #ffffff;
+            --bubble-ai-bg: #f3f4f6;
+            --bubble-ai-text: #1a1a1a;
+
+            /* 小说模式专属颜色 */
+            --novel-speech-color: #10a37f;
+            --novel-emote-color: #6366f1;
+            --novel-text-color: #1a1a1a;
+            
+            --action-color: #6b7280;
+            --hover-bg: #f3f4f6;
+            --global-radius: 12px;
+            --font-base: 16px;
+            
+            --bg-image: none;
+            --bg-overlay-opacity: 0;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+            /* 动画曲线 */
+            --ease-out: cubic-bezier(0.2, 0, 0.2, 1);
+            --ease-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        body.dark-mode {
+            --bg-color: #000000;
+            --card-bg: #121212;
+            --text-color: #e0e0e0;
+            --text-secondary: #9ca3af;
+            --border-color: #262626;
+            --input-bg: #1a1a1a;
+            --bubble-ai-bg: #1f1f1f;
+            --bubble-ai-text: #e0e0e0;
+            --action-color: #888888;
+            --hover-bg: #1f1f1f;
+            --novel-text-color: #e0e0e0;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+        }
+
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-size: var(--font-base);
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            position: relative;
+            transition: background-color 0.3s var(--ease-out), color 0.3s var(--ease-out);
+        }
+
+        /* 全局几何背景画布 */
+        #bgCanvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.5s var(--ease-out);
+        }
+        body.bg-canvas-hidden #bgCanvas { opacity: 0; }
+
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -2;
+            opacity: calc(1 - var(--bg-overlay-opacity));
+            transition: opacity 0.3s var(--ease-out);
+        }
+        body.no-animation * {
+            transition: none !important;
+            animation: none !important;
+        }
+
+        /* ========== 模式选择首页 ========== */
+        #modeSelectPage {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            padding: 40px;
+            flex-wrap: wrap;
+            background: transparent;
+        }
+        .mode-card {
+            width: 280px;
+            height: 380px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: calc(var(--global-radius) + 4px);
+            padding: 30px 24px;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-bounce);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 16px;
+            backdrop-filter: blur(12px);
+            z-index: 2;
+            box-shadow: var(--shadow-sm);
+        }
+        .mode-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-lg);
+        }
+        .mode-icon { font-size: 68px; margin: 10px 0; transition: transform 0.3s var(--ease-bounce); }
+        .mode-card:hover .mode-icon { transform: scale(1.1); }
+        .mode-title { font-size: 22px; font-weight: 700; color: var(--text-color); }
+        .mode-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            flex: 1;
+        }
+        .mode-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--global-radius);
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s var(--ease-out);
+        }
+        .mode-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+        /* ========== 世界创建页 ========== */
+        #worldCreatePage {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1999;
+            background: var(--bg-color);
+            overflow-y: auto;
+        }
+        #worldCreatePage.show { display: block; }
+        .create-container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+        .create-title {
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+        .create-subtitle {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 28px 0 12px;
+            color: var(--text-color);
+        }
+
+        /* 小说模式切换标签 */
+        .novel-mode-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: var(--input-bg);
+            padding: 4px;
+            border-radius: var(--global-radius);
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .novel-tab {
+            padding: 10px 20px;
+            border-radius: calc(var(--global-radius) - 4px);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s var(--ease-out);
+        }
+        .novel-tab.active {
+            background: var(--card-bg);
+            color: var(--primary-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .create-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .create-option-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--global-radius);
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.25s var(--ease-out);
+            text-align: center;
+        }
+        .create-option-card:hover { border-color: var(--primary-color); transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .create-option-card.active {
+            border-color: var(--primary-color);
+            background: var(--primary-light);
+        }
+        .create-option-icon { font-size: 40px; margin-bottom: 12px; transition: transform 0.3s var(--ease-bounce); }
+        .create-option-card:hover .create-option-icon { transform: scale(1.1); }
+        .create-option-name { font-weight: 600; margin-bottom: 8px; }
+        .create-option-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+        .preset-world-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .preset-world-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+        }
+        .preset-world-item:hover { border-color: var(--primary-color); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+        .preset-world-name { font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        .preset-world-tags { font-size: 12px; color: var(--text-secondary); }
+
+        .custom-form {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--global-radius);
+            padding: 24px;
+            margin-bottom: 20px;
+            display: none;
+            animation: fadeSlideIn 0.3s var(--ease-out);
+        }
+        .custom-form.show { display: block; }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .form-item { margin-bottom: 16px; }
+        .form-label { font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            outline: none;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s var(--ease-out);
+        }
+        .form-textarea { min-height: 100px; resize: vertical; }
+        .form-input:focus, .form-textarea:focus { border-color: var(--primary-color); }
+
+        .save-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            transition: all 0.2s var(--ease-out);
+        }
+        .save-item:hover { border-color: var(--primary-color); box-shadow: var(--shadow-sm); }
+        .save-info { flex: 1; }
+        .save-name { font-weight: 600; margin-bottom: 4px; }
+        .save-meta { font-size: 12px; color: var(--text-secondary); }
+        .save-actions { display: flex; gap: 8px; }
+        .save-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s var(--ease-out);
+        }
+        .save-btn.primary { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .save-btn.primary:hover { filter: brightness(1.05); }
+        .save-btn.danger { color: #ef4444; border-color: #fecaca; }
+        .save-btn.danger:hover { background: #fef2f2; }
+        .empty-tip { text-align: center; color: var(--text-secondary); padding: 30px; font-size: 14px; }
+
+        .create-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 28px;
+        }
+        .btn-primary {
+            padding: 12px 36px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--global-radius);
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s var(--ease-out);
+        }
+        .btn-primary:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .btn-secondary {
+            padding: 12px 36px;
+            background: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--global-radius);
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s var(--ease-out);
+        }
+        .btn-secondary:hover { border-color: var(--primary-color); color: var(--primary-color); }
+
+        /* ========== 主应用容器 ========== */
+        #appMain {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 1;
+        }
+        #appMain.show { display: flex; }
+
+        /* ========== 侧边栏 ========== */
+        .sidebar {
+            width: 300px;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow-y: auto;
+            padding-top: calc(20px + var(--safe-top));
+            backdrop-filter: blur(10px);
+        }
+        .sidebar h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+        .sidebar-actions {
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-bottom: var(--safe-bottom);
+        }
+        .btn-outline {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: calc(var(--global-radius) - 4px);
+            color: var(--text-color);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s var(--ease-out);
+        }
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+        .category-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin: 15px 0 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        .character-card {
+            background: transparent;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+            border: 1px solid transparent;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-10px);
+            animation: slideFadeIn 0.4s var(--ease-out) forwards;
+        }
+        @keyframes slideFadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .char-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+        }
+        .char-name { flex: 1; font-size: 14px; font-weight: 500; }
+        .character-card:hover { background: var(--hover-bg); }
+        .character-card.active {
+            border-color: var(--primary-color);
+            background: var(--primary-light);
+            color: var(--primary-color);
+        }
+
+        /* ========== 聊天区 ========== */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            padding-top: calc(15px + var(--safe-top));
+            background: var(--card-bg);
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            z-index: 5;
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        .top-bar-left { display: flex; align-items: center; gap: 12px; }
+        .top-bar-title { font-weight: 700; font-size: 16px; }
+        .top-bar-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .top-bar-right { display: flex; gap: 4px; align-items: center; }
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s var(--ease-out);
+        }
+        .icon-btn:hover { color: var(--primary-color); background: var(--hover-bg); }
+        
+        .chat-box {
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 15px;
+            padding-top: calc(15px + 60px + var(--safe-top));
+            padding-bottom: calc(15px + 120px + var(--safe-bottom));
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+
+        .msg-row { display: flex; gap: 10px; max-width: 85%; animation: msgIn 0.3s var(--ease-out); }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+            background-size: cover;
+            background-position: center;
+        }
+        .msg-body { display: flex; flex-direction: column; gap: 4px; }
+        .msg-name { font-size: 12px; color: var(--text-secondary); padding: 0 4px; }
+        .msg-row.user .msg-name { text-align: right; }
+        .message {
+            padding: 10px 14px;
+            border-radius: var(--global-radius);
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            box-shadow: var(--shadow-sm);
+        }
+        .message.user { background: var(--bubble-user-bg); color: var(--bubble-user-text); }
+        .message.ai { background: var(--bubble-ai-bg); color: var(--bubble-ai-text); }
+
+        /* 聊天消息染色修复 */
+        .msg-action { color: #f59e0b; font-style: italic; display: inline; margin: 0 2px; }
+        .msg-mind { color: #ec4899; font-weight: 500; display: inline; margin: 0 2px; }
+        .msg-emotion {
+            color: #8b5cf6;
+            font-weight: 600;
+            background: rgba(139, 92, 246, 0.1);
+            padding: 1px 6px;
+            border-radius: 4px;
+            display: inline;
+            margin: 0 2px;
+        }
+        .msg-newline { display: block; margin-bottom: 8px; }
+
+        /* 网络小说模式专属样式 */
+        .novel-scene {
+            align-self: center;
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-align: center;
+            padding: 8px 20px;
+            max-width: 90%;
+            margin: 10px 0;
+            font-weight: 500;
+            letter-spacing: 2px;
+        }
+        .novel-narration {
+            align-self: stretch;
+            background: var(--card-bg);
+            border-left: 3px solid var(--primary-color);
+            padding: 14px 18px;
+            border-radius: 0 var(--global-radius) var(--global-radius) 0;
+            line-height: 1.8;
+            margin: 4px 0;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--primary-color);
+            color: var(--novel-text-color);
+            box-shadow: var(--shadow-sm);
+            animation: msgIn 0.3s var(--ease-out);
+        }
+        .novel-speech { color: var(--novel-speech-color); font-weight: 500; }
+        .novel-emote { color: var(--novel-emote-color); font-style: italic; }
+
+        /* ========== 输入区域 ========== */
+        .input-wrapper {
+            position: absolute;
+            left: 12px; right: 12px;
+            bottom: calc(12px + var(--safe-bottom));
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .action-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 0 4px;
+            position: relative;
+        }
+        .action-btn {
+            flex: 1;
+            padding: 10px 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s var(--ease-out);
+            backdrop-filter: blur(10px);
+        }
+        .action-btn:hover { border-color: var(--primary-color); color: var(--primary-color); transform: translateY(-1px); }
+        .action-btn.loading { opacity: 0.6; pointer-events: none; }
+        .voice-btn {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            position: absolute;
+            right: 0;
+            bottom: 52px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+        .voice-btn.recording {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 5px 0 5px 0;
+            align-items: flex-end;
+        }
+        .upload-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--global-radius);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s var(--ease-out);
+        }
+        .upload-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .msg-input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--global-radius);
+            color: var(--text-color);
+            font-size: var(--font-base);
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.2s var(--ease-out);
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            line-height: 1.5;
+        }
+        .msg-input:focus { border-color: var(--primary-color); }
+        .send-btn {
+            padding: 0 24px;
+            height: 44px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--global-radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+        }
+        .send-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+        .send-btn:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
+        
+        .hamburger { display: none; }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 85%;
+                height: 100%;
+                position: fixed;
+                left: -100%;
+                z-index: 999;
+                transition: left 0.3s var(--ease-out);
+            }
+            .sidebar.open { left: 0; }
+            .hamburger { display: block !important; font-size: 22px; cursor: pointer; }
+        }
+
+        /* ========== 设置弹窗 ========== */
+        #settingsOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s var(--ease-out);
+        }
+        #settingsOverlay.show { display: block; opacity: 1; }
+        .settings-modal {
+            position: fixed;
+            top: 50%; left: 50%;
+            width: 90%;
+            max-width: 680px;
+            max-height: 85vh;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 0;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1000;
+            transform: translate(-50%, -50%) scale(0.85) translateY(20px);
+            transition: all 0.4s var(--ease-bounce);
+            display: flex;
+            flex-direction: column;
+        }
+        .settings-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1) translateY(0);
+        }
+        .settings-header {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            background: var(--card-bg);
+            z-index: 2;
+            padding-top: calc(16px + var(--safe-top));
+        }
+        .settings-header .back-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .settings-header .back-btn:hover { background: var(--hover-bg); }
+        .settings-header .title { flex: 1; text-align: center; font-weight: 700; font-size: 16px; }
+
+        /* 设置标签页导航 */
+        .settings-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--card-bg);
+            flex-shrink: 0;
+        }
+        .settings-tab {
+            flex: 1;
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+        }
+        .settings-tab:hover { color: var(--text-color); background: var(--hover-bg); }
+        .settings-tab.active {
+            color: var(--primary-color);
+            background: var(--primary-light);
+            font-weight: 600;
+        }
+
+        .settings-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 10px;
+        }
+        .tab-panel {
+            display: none;
+            animation: fadeSlideIn 0.3s var(--ease-out);
+        }
+        .tab-panel.active { display: block; }
+
+        .setting-group {
+            margin: 10px 0;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s var(--ease-out);
+        }
+        .setting-item:hover { background: var(--hover-bg); }
+        .setting-item:last-child { border-bottom: none; }
+        .setting-item.disabled { opacity: 0.5; pointer-events: none; }
+        .setting-item .label { font-size: 14px; font-weight: 500; }
+        .setting-item .sub-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        .setting-item .right { display: flex; align-items: center; gap: 10px; color: var(--text-secondary); }
+        .setting-item input[type="text"],
+        .setting-item input[type="password"],
+        .setting-item input[type="number"] {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: var(--text-color);
+            text-align: right;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .setting-item input[type="text"]:focus,
+        .setting-item input[type="password"]:focus,
+        .setting-item input[type="number"]:focus { border-color: var(--primary-color); }
+        .setting-item input[type="color"] {
+            width: 36px; height: 26px;
+            border: none; border-radius: 6px;
+            background: transparent; cursor: pointer;
+        }
+        .setting-item input[type="range"] { width: 120px; cursor: pointer; }
+        .setting-item select {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 8px;
+            color: var(--text-color);
+            outline: none;
+        }
+        .switch { position: relative; display: inline-block; width: 48px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .3s var(--ease-out);
+            border-radius: 28px;
+        }
+        .slider:before {
+            position: absolute; content: "";
+            height: 22px; width: 22px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .3s var(--ease-out);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .section-title {
+            padding: 20px 20px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .save-btn-wrap { padding: 16px 20px; padding-bottom: calc(16px + var(--safe-bottom)); border-top: 1px solid var(--border-color); flex-shrink: 0; }
+        .save-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+        }
+        .save-btn:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+        /* 二级折叠面板 */
+        .sub-panel {
+            display: none;
+            background: var(--input-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 12px 20px;
+        }
+        .sub-panel.show { display: block; animation: fadeSlideIn 0.25s var(--ease-out); }
+        .sub-panel .setting-item { padding: 10px 0; border-bottom: 1px dashed var(--border-color); }
+        .sub-panel .setting-item:last-child { border-bottom: none; }
+
+        /* API历史下拉 */
+        .api-history-wrap { position: relative; }
+        .api-history-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 280px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow-md);
+            z-index: 10;
+            display: none;
+            margin-top: 4px;
+        }
+        .api-history-dropdown.show { display: block; animation: fadeSlideIn 0.2s var(--ease-out); }
+        .api-history-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .api-history-item:hover { background: var(--hover-bg); }
+        .api-history-item:last-child { border-bottom: none; }
+
+        /* 模型列表下拉 */
+        .model-select-wrap { position: relative; }
+        .model-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 200px;
+            max-height: 240px;
+            overflow-y: auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow-md);
+            z-index: 20;
+            display: none;
+            margin-top: 4px;
+        }
+        .model-dropdown.show { display: block; animation: fadeSlideIn 0.2s var(--ease-out); }
+        .model-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .model-item:hover { background: var(--primary-light); color: var(--primary-color); }
+        .model-item:last-child { border-bottom: none; }
+        .api-test-btn {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--primary-color);
+            background: transparent;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s var(--ease-out);
+        }
+        .api-test-btn:hover { background: var(--primary-color); color: white; }
+        .api-test-btn.loading { opacity: 0.6; pointer-events: none; }
+
+        /* 角色面板 */
+        #novelCharPanel {
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 300px;
+            height: 100%;
+            background: var(--card-bg);
+            border-left: 1px solid var(--border-color);
+            z-index: 998;
+            transition: right 0.3s var(--ease-out);
+            overflow-y: auto;
+            padding: 20px;
+            padding-top: calc(20px + var(--safe-top));
+            padding-bottom: var(--safe-bottom);
+            box-shadow: var(--shadow-lg);
+        }
+        #novelCharPanel.open { right: 0; }
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+        .npc-card {
+            background: var(--hover-bg);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 12px;
+            transition: transform 0.2s var(--ease-out);
+        }
+        .npc-card:hover { transform: translateX(-4px); }
+        .npc-name { font-weight: 600; margin-bottom: 6px; }
+        .npc-info { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+        /* 好感度悬浮窗口 */
+        #affectionFloat {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 13px;
+            z-index: 100;
+            box-shadow: var(--shadow-md);
+            display: none;
+            backdrop-filter: blur(10px);
+            animation: fadeSlideIn 0.3s var(--ease-out);
+        }
+        #affectionFloat.show { display: flex; align-items: center; gap: 8px; }
+        #affectionFloat input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            outline: none;
+            text-align: center;
+        }
+        #affectionFloat input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* 图片预览 */
+        .image-preview {
+            max-width: 200px;
+            border-radius: 8px;
+            margin-top: 6px;
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- 全局几何背景画布 -->
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- 模式选择首页 -->
+    <div id="modeSelectPage">
+        <div class="mode-card" onclick="enterChatMode()">
+            <div class="mode-icon">💬</div>
+            <div class="mode-title">AI 聊天模式</div>
+            <div class="mode-desc">
+                一对一角色互动聊天<br>
+                双轨好感度系统、自定义人设头像<br>
+                支持图片文件上传、丰富细节描写
+            </div>
+            <button class="mode-btn">进入聊天模式</button>
+        </div>
+
+        <div class="mode-card" onclick="enterNovelMode()">
+            <div class="mode-icon">📖</div>
+            <div class="mode-title">网络小说模式</div>
+            <div class="mode-desc">
+                快节奏短剧爽文风，恋爱拉扯<br>
+                多预设世界观，自动剧情存档<br>
+                三档行动建议，对话神态分色标注
+            </div>
+            <button class="mode-btn">进入小说模式</button>
+        </div>
+    </div>
+
+    <!-- 世界创建页 -->
+    <div id="worldCreatePage">
+        <div class="create-container">
+            <h2 class="create-title">创建你的小说世界</h2>
+            
+            <!-- 小说风格切换 -->
+            <div class="novel-mode-tabs">
+                <div class="novel-tab active" onclick="switchNovelStyle('normal')">经典叙事</div>
+                <div class="novel-tab" onclick="switchNovelStyle('web')">网络短剧爽文</div>
+            </div>
+
+            <div class="create-subtitle">选择创建方式</div>
+            <div class="create-options">
+                <div class="create-option-card" onclick="selectCreateType('random')" id="opt-random">
+                    <div class="create-option-icon">🎲</div>
+                    <div class="create-option-name">完全随机</div>
+                    <div class="create-option-desc">一键生成世界观角色，即刻开启剧情</div>
+                </div>
+                <div class="create-option-card" onclick="selectCreateType('world')" id="opt-world">
+                    <div class="create-option-icon">🌍</div>
+                    <div class="create-option-name">选择世界观</div>
+                    <div class="create-option-desc">从预设库挑选，角色自动生成</div>
+                </div>
+                <div class="create-option-card" onclick="selectCreateType('char')" id="opt-char">
+                    <div class="create-option-icon">👤</div>
+                    <div class="create-option-name">自定义角色</div>
+                    <div class="create-option-desc">设定主角与NPC，世界观随机生成</div>
+                </div>
+            </div>
+
+            <div class="custom-form" id="presetWorldList">
+                <div class="form-label">选择预设世界观（点击选中，可在下方修改）</div>
+                <div class="preset-world-grid" id="presetGrid"></div>
+            </div>
+
+            <div class="custom-form" id="customWorldForm">
+                <div class="form-item">
+                    <div class="form-label">世界观名称</div>
+                    <input type="text" class="form-input" id="customWorldName" placeholder="例如：都市言情">
+                </div>
+                <div class="form-item">
+                    <div class="form-label">世界观详细设定</div>
+                    <textarea class="form-textarea" id="customWorldDesc" placeholder="描述这个世界的背景、规则、势力、时代特征..."></textarea>
+                </div>
+            </div>
+
+            <div class="custom-form" id="customCharForm">
+                <div class="form-item">
+                    <div class="form-label">你的主角身份</div>
+                    <input type="text" class="form-input" id="customPlayerIdentity" placeholder="例如：集团总裁">
+                </div>
+                <div class="form-item">
+                    <div class="form-label">登场NPC（每行一个，空格分隔姓名和身份）</div>
+                    <textarea class="form-textarea" id="customNPCList" placeholder="苏晚晴 高冷秘书&#10;林墨白 青梅竹马"></textarea>
+                </div>
+            </div>
+
+            <div class="create-subtitle">📂 我的世界存档</div>
+            <div id="saveList"></div>
+
+            <div class="create-actions">
+                <button class="btn-secondary" onclick="backToModeSelect()">返回首页</button>
+                <button class="btn-primary" onclick="confirmCreateWorld()">开始剧情</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用容器 -->
+    <div id="appMain">
+        <div class="sidebar" id="chatSidebar">
+            <h3>📜 角色档案</h3>
+            <div id="characterList"></div>
+            <div class="sidebar-actions">
+                <button class="btn-outline" onclick="openAddCharacterModal()">➕ 添加自定义角色</button>
+                <button class="btn-outline" onclick="backToModeSelect()">🏠 返回模式选择</button>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="top-bar">
+                <div class="top-bar-left">
+                    <div class="hamburger" id="hamburgerBtn">☰</div>
+                    <div>
+                        <div class="top-bar-title" id="topTitle">AI 幻想乡</div>
+                        <div class="top-bar-sub" id="topSubtitle">聊天模式</div>
+                    </div>
+                </div>
+                <div class="top-bar-right">
+                    <button class="icon-btn" id="novelCharBtn" style="display:none;" title="角色面板">👥</button>
+                    <button class="icon-btn" id="refreshNovelBtn" style="display:none;" title="返回世界选择">🏠</button>
+                    <button class="icon-btn" id="settingsBtn" title="设置">⚙️</button>
+                </div>
+            </div>
+
+            <div class="chat-box" id="chatBox"></div>
+
+            <div class="input-wrapper">
+                <div class="action-bar" id="actionBar" style="display:none;">
+                    <button class="action-btn" id="btnRadical" onclick="generateActionSuggestion('radical')">⚔️ 激进</button>
+                    <button class="action-btn" id="btnNeutral" onclick="generateActionSuggestion('neutral')">⚖️ 中立</button>
+                    <button class="action-btn" id="btnConservative" onclick="generateActionSuggestion('conservative')">🛡️ 保守</button>
+                    <button class="action-btn voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音输入">🎤</button>
+                </div>
+
+                <div class="input-area">
+                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()" title="上传图片/文件">📎</button>
+                    <input type="file" id="fileInput" accept="image/*,.txt,.pdf,.doc,.docx" style="display:none;" onchange="handleFileUpload(this)">
+                    <textarea class="msg-input" id="msgInput" placeholder="输入你想说的话..." rows="1"></textarea>
+                    <button class="send-btn" id="sendBtn">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 好感度悬浮窗口 -->
+    <div id="affectionFloat">
+        <span>当前好感：</span>
+        <input type="number" id="floatAffectionVal" min="0" max="100" onchange="updateCurrentAffection(this.value)">
+    </div>
+
+    <!-- 角色面板 -->
+    <div id="novelCharPanel">
+        <div class="panel-title">📋 登场角色</div>
+        <div id="npcList"></div>
+        <div style="margin-top: 20px;">
+            <div class="panel-title" style="font-size:14px;">🌍 世界观设定</div>
+            <div id="worldSetting" class="npc-info"></div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div id="settingsOverlay"></div>
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-header">
+            <button class="back-btn" onclick="closeSettings()">‹ 返回</button>
+            <div class="title">设置</div>
+            <div style="width: 50px;"></div>
+        </div>
+
+        <!-- 标签页导航 -->
+        <div class="settings-tabs">
+            <div class="settings-tab active" onclick="switchSettingsTab('api')">API配置</div>
+            <div class="settings-tab" onclick="switchSettingsTab('chat')">对话设置</div>
+            <div class="settings-tab" onclick="switchSettingsTab('theme')">个性化</div>
+            <div class="settings-tab" onclick="switchSettingsTab('data')">数据管理</div>
+        </div>
+
+        <div class="settings-content">
+            <!-- API配置面板 -->
+            <div class="tab-panel active" id="tab-api">
+                <div class="section-title">接口设置</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div>
+                            <div class="label">API 地址</div>
+                            <div class="sub-label">点击输入框查看历史记录</div>
+                        </div>
+                        <div class="right api-history-wrap">
+                            <input type="text" id="apiUrl" style="width: 200px;" placeholder="https://api.deepseek.com/v1" />
+                            <div class="api-history-dropdown" id="apiUrlHistory"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div>
+                            <div class="label">API Key</div>
+                            <div class="sub-label">点击输入框查看历史记录</div>
+                        </div>
+                        <div class="right api-history-wrap">
+                            <input type="password" id="apiKeyInput" style="width: 200px;" placeholder="sk-..." />
+                            <div class="api-history-dropdown" id="apiKeyHistory"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">模型名称</div>
+                        <div class="right model-select-wrap">
+                            <input type="text" id="modelName" style="width: 140px;" placeholder="deepseek-chat" readonly />
+                            <button class="api-test-btn" onclick="fetchModelList()">获取列表</button>
+                            <div class="model-dropdown" id="modelDropdown"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item" style="justify-content: center;">
+                        <button class="api-test-btn" style="width: 100%; padding: 12px; font-size: 14px;" onclick="testApiConnection()">🔍 测试 API 连通性</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 对话设置面板 -->
+            <div class="tab-panel" id="tab-chat">
+                <div class="section-title">好感度系统</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div>
+                            <div class="label">自动好感度模式</div>
+                            <div class="sub-label">剧情中自动增减好感，保留独立数值</div>
+                        </div>
+                        <div class="right">
+                            <label class="switch">
+                                <input type="checkbox" id="autoAffectionToggle" checked onchange="onAffectionModeChange('auto')" />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="sub-panel show" id="autoAffectionSub">
+                        <div class="setting-item">
+                            <div class="label">显示好感度悬浮窗</div>
+                            <div class="right">
+                                <label class="switch"><input type="checkbox" id="showAffectionFloat" /><span class="slider"></span></label>
+                            </div>
+                        </div>
+                        <div class
+                        <div class="setting-item">
+                            <div class="label">当前角色好感度</div>
+                            <div class="right">
+                                <input type="number" id="currentAffectionVal" style="width: 80px;" min="0" max="100" value="50" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="label">手动全局好感覆盖</div>
+                            <div class="sub-label">只在请求时临时覆盖，不修改角色原始好感</div>
+                        </div>
+                        <div class="right">
+                            <label class="switch">
+                                <input type="checkbox" id="useManualAffection" onchange="onAffectionModeChange('manual')" />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="sub-panel" id="manualAffectionSub">
+                        <div class="setting-item">
+                            <div class="label">全局手动好感数值</div>
+                            <div class="right">
+                                <input type="number" id="globalManualAffection" style="width: 80px;" min="0" max="100" value="50" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">对话与输出</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="label">深色模式</div>
+                        <div class="right">
+                            <label class="switch"><input type="checkbox" id="themeToggle" /><span class="slider"></span></label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">多文本输出</div>
+                        <div class="right">
+                            <label class="switch"><input type="checkbox" id="allowMultiline" checked /><span class="slider"></span></label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">允许成人内容</div>
+                        <div class="right">
+                            <label class="switch"><input type="checkbox" id="allowNsfw" /><span class="slider"></span></label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">小说对话颜色</div>
+                        <div class="right"><input type="color" id="novelSpeechColor" value="#10a37f" /></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">小说神态颜色</div>
+                        <div class="right"><input type="color" id="novelEmoteColor" value="#6366f1" /></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">小说叙述字体色</div>
+                        <div class="right"><input type="color" id="novelTextColor" value="#1a1a1a" /></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 个性化面板 -->
+            <div class="tab-panel" id="tab-theme">
+                <div class="section-title">外观定制</div>
+                <div class="setting-group">
+                    <div class="setting-item" onclick="document.getElementById('bgImageInput').click()" style="cursor: pointer;">
+                        <div class="label">📷 自定义背景图片</div>
+                        <div class="right">选择文件</div>
+                        <input type="file" id="bgImageInput" accept="image/*" style="display:none;" />
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">🌑 背景遮罩浓度</div>
+                        <div class="right">
+                            <input type="range" id="bgOverlayRange" min="0" max="0.8" step="0.05" value="0" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">🎨 主题主色调</div>
+                        <div class="right"><input type="color" id="primaryColorInput" value="#10a37f" /></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">💬 用户气泡颜色</div>
+                        <div class="right"><input type="color" id="bubbleUserColor" value="#10a37f" /></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">🤖 AI气泡颜色</div>
+                        <div class="right"><input type="color" id="bubbleAiColor" value="#f3f4f6" /></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">🔘 全局圆角大小</div>
+                        <div class="right">
+                            <input type="range" id="borderRadiusRange" min="2" max="24" step="2" value="12" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">🔤 聊天字体大小</div>
+                        <div class="right">
+                            <input type="range" id="fontSizeRange" min="12" max="22" step="1" value="16" />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">🚫 禁用所有动画</div>
+                        <div class="right">
+                            <label class="switch"><input type="checkbox" id="disableAnimToggle" /><span class="slider"></span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">几何美化</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="label">启用聊天页几何美化</div>
+                        <div class="right">
+                            <label class="switch"><input type="checkbox" id="chatBgCanvasToggle" checked /><span class="slider"></span></label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">几何美学样式</div>
+                        <div class="right">
+                            <select id="bgGeometryStyle">
+                                <option value="particles">粒子连线</option>
+                                <option value="waves">流动波浪</option>
+                                <option value="grid">动态网格</option>
+                                <option value="circles">扩散圆点</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="label">线条亮度</div>
+                        <div class="right">
+                            <input type="range" id="bgLineBrightness" min="0.3" max="1" step="0.05" value="0.85" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">角色头像</div>
+                <div class="setting-group">
+                    <div class="setting-item" onclick="document.getElementById('avatarInput').click()" style="cursor: pointer;">
+                        <div>
+                            <div class="label">👤 当前角色自定义头像</div>
+                            <div class="sub-label">聊天模式下生效</div>
+                        </div>
+                        <div class="right">上传</div>
+                        <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
+                    </div>
+                    <div class="setting-item" onclick="resetCurrentAvatar()" style="cursor: pointer; color: #ef4444; border-bottom: none;">
+                        <div class="label">🗑️ 重置当前角色头像</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据管理面板 -->
+            <div class="tab-panel" id="tab-data">
+                <div class="section-title">数据管理</div>
+                <div class="setting-group" style="border-bottom: none;">
+                    <div class="setting-item" onclick="exportAllData()" style="cursor: pointer;">
+                        <div>
+                            <div class="label">📤 导出全部数据 JSON</div>
+                            <div class="sub-label">包含设置、API、角色、头像、聊天记录、小说存档</div>
+                        </div>
+                    </div>
+                    <div class="setting-item" onclick="document.getElementById('importFileInput').click()" style="cursor: pointer;">
+                        <div>
+                            <div class="label">📥 导入 JSON 全量数据</div>
+                            <div class="sub-label">换设备一键还原所有配置与记录</div>
+                        </div>
+                        <input type="file" id="importFileInput" accept=".json" style="display:none;" />
+                    </div>
+                    <div class="setting-item" onclick="resetAndReload()" style="cursor: pointer; color:#ef4444; border-bottom: none;">
+                        <div class="label">🔄 重置所有本地数据</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="save-btn-wrap">
+            <button class="save-btn" id="saveAllConfigBtn">💾 保存所有设置</button>
+        </div>
+    </div>
+
+    <script>
+        // ===================== 全局数据结构 =====================
+        const DEFAULT_CHARACTERS = [
+            { category: "魔女之旅", name: "伊蕾娜", prompt: "灰之魔女伊蕾娜，游历世间的独行旅人，慵懒随性，带淡淡的疏离温柔", affection: 48, avatar: "" },
+            { category: "Re:从零", name: "蕾姆", prompt: "忠诚温柔的鬼族女仆，细心体贴，内心敏感，愿意无条件守护主人", affection: 62, avatar: "" },
+            { category: "蔚蓝档案", name: "阿罗娜", prompt: "天真活泼的学生会会长，黏人元气，满心依赖老师", affection: 70, avatar: "" },
+            { category: "边狱巴士", name: "唐吉诃德", prompt: "热血莽撞、憧憬英雄主义的少年，热情外放，情绪起伏明显", affection: 42, avatar: "" },
+            { category: "边狱巴士", name: "以实玛丽", prompt: "腹黑狡黠、言语带刺的少女，擅长暗藏心思，表面慵懒冷淡", affection: 35, avatar: "" },
+            { category: "治愈系", name: "本间芽衣子(面码)", prompt: "纯真懵懂的幽灵少女，心思纯粹柔软，说话轻声细语", affection: 68, avatar: "" },
+            { category: "龙女仆", name: "康娜·卡姆依", prompt: "幼龙少女，好奇心旺盛，软糯可爱，喜欢甜食与新奇事物", affection: 75, avatar: "" },
+            { category: "原神", name: "七七", prompt: "健忘僵尸少女，性格呆滞安静，做事慢悠悠，依赖笔记记录一切", affection: 45, avatar: "" },
+            { category: "原神", name: "派蒙", prompt: "悬浮应急向导，聒噪活泼，护着旅行者，嘴硬心软", affection: 60, avatar: "" },
+            { category: "间谍过家家", name: "阿尼亚", prompt: "拥有读心能力的小女孩，爱吃花生，天真跳脱，经常闹出乌龙", affection: 72, avatar: "" },
+            { category: "孤独摇滚", name: "后藤一里(波奇酱)", prompt: "重度社恐吉他手，自卑内向，容易紧张发抖，渴望被认可", affection: 38, avatar: "" },
+            { category: "葬送的芙莉莲", name: "芙莉莲", prompt: "千年精灵魔法师，看淡生死，慢热温柔，善于观察细微情绪", affection: 40, avatar: "" },
+            { category: "原神", name: "胡桃", prompt: "往生堂活泼堂主，古灵精怪，跳脱风趣，喜欢开玩笑，心思通透", affection: 58, avatar: "" },
+            { category: "原神", name: "神里绫华", prompt: "白鹭公主，温婉端庄，内心羞涩，擅长舞蹈，对待心上人十分腼腆", affection: 65, avatar: "" },
+            { category: "崩坏：星穹铁道", name: "三月七", prompt: "活泼拍照少女，傲娇嘴硬，重视伙伴，害怕孤单", affection: 66, avatar: "" },
+            { category: "崩坏：星穹铁道", name: "丹恒", prompt: "清冷寡言的少年，沉稳内敛，习惯独自承受心事，温柔内敛", affection: 44, avatar: "" },
+            { category: "动漫", name: "中野三玖", prompt: "安静内向的耳机少女，热爱音乐，不善表达，容易脸红害羞", affection: 63, avatar: "" },
+            { category: "通用", name: "温柔助手", prompt: "你是细腻温柔、共情力极强的AI，擅长细致描写", affection: 55, avatar: "" },
+        ];
+
+
+        const WORLD_TYPES = [
+            { name: "都市言情", desc: "现代都市背景，豪门恩怨、职场博弈、青梅竹马、破镜重圆，快节奏恋爱拉扯，人际关系复杂交错。", tags: ["现代", "言情", "快节奏"] },
+            { name: "古代江湖", desc: "武侠与权谋交织，门派林立朝堂暗流，江湖儿女快意恩仇，儿女情长英雄气短。", tags: ["古风", "武侠", "权谋"] },
+            { name: "现代都市", desc: "繁华喧嚣的现代城市，平凡日常下藏着不为人知的故事，适合日常恋爱剧情。", tags: ["现代", "都市", "日常"] },
+            { name: "赛博朋克", desc: "霓虹闪烁的雨夜都市，巨型企业掌控一切，义体与黑客无处不在，边缘者的生存与爱情。", tags: ["赛博朋克", "科幻"] },
+            { name: "高魔异世界", desc: "魔法繁荣的中世纪异世界，法师龙族神明并存，王国教廷纷争不断，冒险与恋爱交织。", tags: ["异世界", "魔法"] },
+            { name: "月亮计划·都市", desc: "被翼公司统治的残酷都市，奇点技术扭曲物理法则，收尾人帮派扭曲现象随处可见。", tags: ["月亮计划", "暗黑"] },
+            { name: "修仙玄幻", desc: "强者为尊的修真世界，宗门争霸渡劫飞升，妖兽横行机缘与危机并存，道侣携手逆天改命。", tags: ["修仙", "玄幻"] },
+            { name: "末日废土", desc: "文明崩塌后的荒芜世界，资源匮乏变异生物横行，幸存者在废墟中挣扎求生抱团取暖。", tags: ["末日", "生存"] },
+            { name: "蒸汽朋克", desc: "维多利亚风格机械世界，蒸汽引擎齿轮发条浮空飞艇遍布，绅士与盗贼共存于迷雾之都。", tags: ["蒸汽朋克", "复古"] },
+            { name: "克苏鲁诡秘", desc: "迷雾笼罩的旧港口，不可名状的古神沉睡于深海，疯狂与理智一线之隔，真相往往致命。", tags: ["克苏鲁", "悬疑"] },
+            { name: "日式校园", desc: "樱花飘落的日本高中，青春日常与青涩恋情，社团活动夏日祭烟花大会，纯爱校园风。", tags: ["校园", "青春"] },
+            { name: "豪门总裁", desc: "顶级商圈豪门恩怨，契约婚姻先婚后爱，商战博弈与情感拉扯，强节奏爽文剧情。", tags: ["总裁", "言情", "爽文"] }
+        ];
+
+        const NAME_POOL = {
+            male: ["顾言琛", "林墨白", "沈砚之", "江屿", "苏景行", "陆承宇", "裴昭", "傅景深", "韩叙", "厉夜霆"],
+            female: ["苏晚晴", "林知夏", "沈清鸢", "顾念希", "姜糯", "阮清欢", "苏梨", "温以宁", "许星遥", "桑稚"],
+            neutral: ["阿七", "墨尘", "留白", "见溪", "星辞", "清禾", "慕白", "砚秋"]
+        };
+
+        const IDENTITY_POOL = ["集团总裁", "高冷秘书", "青梅竹马", "神秘药师", "私家侦探", "顶尖黑客", "大学教授", "酒吧老板", "当红明星", "外科医生", "律师", "设计师"];
+        const PERSONALITY_POOL = ["温润如玉", "桀骜不驯", "腹黑傲娇", "清冷寡言", "活泼跳脱", "沉稳可靠", "慵懒随性", "天真单纯", "杀伐果断", "外冷内热"];
+
+        let appData = {
+            config: {
+                apiUrl: 'https://hcg.pippi.top/v1',
+                apiKey: 'sk-SUcxoADaBWvlJKICUkKYXMNCBX74tlytcztjOqjGIZSDBfaF',
+                model: 'gpt-5.4-mini',
+                apiHistory: { urls: [], keys: [] },
+                autoAffection: true,
+                showAffectionFloat: false,
+                useManualAffection: false,
+                globalManualAffection: 50,
+                allowNsfw: false,
+                allowMultiline: true,
+                theme: 'light',
+                bgImage: '',
+                bgOverlay: 0,
+                primaryColor: '#10a37f',
+                bubbleUserColor: '#10a37f',
+                bubbleAiColor: '#f3f4f6',
+                novelSpeechColor: '#10a37f',
+                novelEmoteColor: '#6366f1',
+                novelTextColor: '#1a1a1a',
+                borderRadius: 12,
+                fontSize: 16,
+                disableAnimation: false,
+                summaryShortRound: 5,
+                summaryLongRound: 15,
+                chatBgCanvasEnabled: true,
+                bgGeometryStyle: 'particles',
+                bgLineBrightness: 0.85
+            },
+            characters: [],
+            histories: {},
+            novelSaves: []
+        };
+
+        let currentMode = null;
+        let currentCharId = null, isProcessing = false, currentMessages = [];
+        let novelState = {
+            saveId: null,
+            worldType: null,
+            npcs: [],
+            storyHistory: [],
+            round: 0,
+            summaries: { short: [], long: '' }
+        };
+        let createType = 'random';
+        let recognition = null, isRecording = false;
+        let bgAnimationFrame = null, bgParticles = [], bgWaves = [], bgCircles = [];
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+
+        // ===================== 设置标签页切换 =====================
+        function switchSettingsTab(tabName) {
+            document.querySelectorAll('.settings-tab').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.settings-tab[onclick="switchSettingsTab('${tabName}')"]`).classList.add('active');
+
+            document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        // ===================== 好感度互斥逻辑 =====================
+        function onAffectionModeChange(mode) {
+            const autoToggle = document.getElementById('autoAffectionToggle');
+            const manualToggle = document.getElementById('useManualAffection');
+            const autoSub = document.getElementById('autoAffectionSub');
+            const manualSub = document.getElementById('manualAffectionSub');
+            const currentVal = document.getElementById('currentAffectionVal');
+
+            if (mode === 'auto') {
+                manualToggle.checked = false;
+                appData.config.useManualAffection = false;
+                autoSub.classList.add('show');
+                manualSub.classList.remove('show');
+                currentVal.disabled = false;
+                currentVal.style.opacity = '1';
+            }
+
+            if (mode === 'manual') {
+                autoToggle.checked = false;
+                appData.config.autoAffection = false;
+                autoSub.classList.remove('show');
+                manualSub.classList.add('show');
+                currentVal.disabled = true;
+                currentVal.style.opacity = '0.5';
+            }
+        }
+
+        // ===================== 初始化与存储 =====================
+        function loadAppData() {
+            const saved = localStorage.getItem('ai_fantasy_land_v3');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    appData.config = { ...appData.config, ...parsed.config };
+                    appData.characters = parsed.characters || [];
+                    appData.histories = parsed.histories || {};
+                    appData.novelSaves = parsed.novelSaves || [];
+                } catch (e) {
+                    console.error('数据加载失败', e);
+                }
+            }
+
+            if (appData.characters.length === 0) {
+                DEFAULT_CHARACTERS.forEach(c => {
+                    appData.characters.push({ id: generateId(), ...c });
+                });
+            }
+
+            applyAllCustomSettings();
+            renderSaveList();
+            renderPresetWorlds();
+            initBgCanvas();
+            bindApiHistoryEvents();
+            bindModelDropdownEvents();
+        }
+
+        function saveAppData() {
+            localStorage.setItem('ai_fantasy_land_v3', JSON.stringify(appData));
+        }
+
+        function applyAllCustomSettings() {
+            const root = document.documentElement;
+            const cfg = appData.config;
+
+            root.style.setProperty('--primary-color', cfg.primaryColor);
+            root.style.setProperty('--bubble-user-bg', cfg.bubbleUserColor);
+            root.style.setProperty('--bubble-ai-bg', cfg.bubbleAiColor);
+            root.style.setProperty('--novel-speech-color', cfg.novelSpeechColor);
+            root.style.setProperty('--novel-emote-color', cfg.novelEmoteColor);
+            root.style.setProperty('--novel-text-color', cfg.novelTextColor);
+            root.style.setProperty('--global-radius', cfg.borderRadius + 'px');
+            root.style.setProperty('--font-base', cfg.fontSize + 'px');
+            root.style.setProperty('--bg-image', cfg.bgImage ? `url(${cfg.bgImage})` : 'none');
+            root.style.setProperty('--bg-overlay-opacity', cfg.bgOverlay);
+
+            document.body.classList.toggle('dark-mode', cfg.theme === 'dark');
+            document.body.classList.toggle('no-animation', cfg.disableAnimation);
+            document.body.classList.toggle('bg-canvas-hidden', !cfg.chatBgCanvasEnabled);
+
+            document.getElementById('apiUrl').value = cfg.apiUrl;
+            document.getElementById('apiKeyInput').value = cfg.apiKey;
+            document.getElementById('modelName').value = cfg.model;
+            document.getElementById('autoAffectionToggle').checked = cfg.autoAffection;
+            document.getElementById('showAffectionFloat').checked = cfg.showAffectionFloat;
+            document.getElementById('globalManualAffection').value = cfg.globalManualAffection;
+            document.getElementById('useManualAffection').checked = cfg.useManualAffection;
+            document.getElementById('themeToggle').checked = cfg.theme === 'dark';
+            document.getElementById('allowMultiline').checked = cfg.allowMultiline;
+            document.getElementById('allowNsfw').checked = cfg.allowNsfw;
+            document.getElementById('bgOverlayRange').value = cfg.bgOverlay;
+            document.getElementById('primaryColorInput').value = cfg.primaryColor;
+            document.getElementById('bubbleUserColor').value = cfg.bubbleUserColor;
+            document.getElementById('bubbleAiColor').value = cfg.bubbleAiColor;
+            document.getElementById('novelSpeechColor').value = cfg.novelSpeechColor;
+            document.getElementById('novelEmoteColor').value = cfg.novelEmoteColor;
+            document.getElementById('novelTextColor').value = cfg.novelTextColor;
+            document.getElementById('borderRadiusRange').value = cfg.borderRadius;
+            document.getElementById('fontSizeRange').value = cfg.fontSize;
+            document.getElementById('disableAnimToggle').checked = cfg.disableAnimation;
+            document.getElementById('chatBgCanvasToggle').checked = cfg.chatBgCanvasEnabled;
+            document.getElementById('bgGeometryStyle').value = cfg.bgGeometryStyle;
+            document.getElementById('bgLineBrightness').value = cfg.bgLineBrightness;
+
+            onAffectionModeChange(cfg.useManualAffection ? 'manual' : 'auto');
+            updateAffectionFloat();
+        }
+
+        // ===================== 首页动态几何背景 =====================
+        function initBgCanvas() {
+            const canvas = document.getElementById('bgCanvas');
+            const ctx = canvas.getContext('2d');
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                restartGeometryAnimation();
+            }
+
+            window.addEventListener('resize', resize);
+            document.getElementById('bgGeometryStyle').addEventListener('change', restartGeometryAnimation);
+            document.getElementById('bgLineBrightness').addEventListener('input', () => {
+                if (!appData.config.disableAnimation) drawGeometryFrame();
+            });
+
+            resize();
+        }
+
+        function restartGeometryAnimation() {
+            if (bgAnimationFrame) cancelAnimationFrame(bgAnimationFrame);
+            bgParticles = [];
+            bgWaves = [];
+            bgCircles = [];
+            initGeometryByStyle();
+            animateGeometry();
+        }
+
+        function initGeometryByStyle() {
+            const style = appData.config.bgGeometryStyle;
+            const canvas = document.getElementById('bgCanvas');
+
+            if (style === 'particles') {
+                for (let i = 0; i < 80; i++) {
+                    bgParticles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: (Math.random() - 0.5) * 1.2,
+                        vy: (Math.random() - 0.5) * 1.2,
+                        radius: Math.random() * 2.5 + 1
+                    });
+                }
+            }
+
+            if (style === 'waves') {
+                for (let i = 0; i < 6; i++) {
+                    bgWaves.push({
+                        y: canvas.height * (0.2 + i * 0.12),
+                        amplitude: 30 + Math.random() * 50,
+                        frequency: 0.01 + Math.random() * 0.015,
+                        speed: 0.02 + Math.random() * 0.02
+                    });
+                }
+            }
+
+            if (style === 'grid') {
+                for (let x = 0; x < canvas.width; x += 60) {
+                    for (let y = 0; y < canvas.height; y += 60) {
+                        bgParticles.push({
+                            x, y,
+                            baseX: x,
+                            baseY: y,
+                            vx: (Math.random() - 0.5) * 0.6,
+                            vy: (Math.random() - 0.5) * 0.6,
+                            radius: 2
+                        });
+                    }
+                }
+            }
+
+            if (style === 'circles') {
+                for (let i = 0; i < 12; i++) {
+                    bgCircles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        radius: Math.random() * 80 + 40,
+                        maxRadius: Math.random() * 120 + 80,
+                        speed: 0.4 + Math.random() * 0.8,
+                        alpha: 0.03 + Math.random() * 0.06
+                    });
+                }
+            }
+        }
+
+        function animateGeometry() {
+            if (appData.config.disableAnimation) return;
+            drawGeometryFrame();
+            bgAnimationFrame = requestAnimationFrame(animateGeometry);
+        }
+
+        function drawGeometryFrame() {
+            const canvas = document.getElementById('bgCanvas');
+            const ctx = canvas.getContext('2d');
+            const isDark = appData.config.theme === 'dark';
+            const brightness = appData.config.bgLineBrightness;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const primaryColor = appData.config.primaryColor;
+            const hex = primaryColor.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+
+            const lineAlpha = isDark ? 0.18 * brightness : 0.12 * brightness;
+            const particleAlpha = isDark ? 0.35 * brightness : 0.25 * brightness;
+
+            const style = appData.config.bgGeometryStyle;
+
+            if (style === 'particles') {
+                bgParticles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${particleAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${lineAlpha})`;
+                ctx.lineWidth = 1.2;
+
+                for (let i = 0; i < bgParticles.length; i++) {
+                    for (let j = i + 1; j < bgParticles.length; j++) {
+                        const dx = bgParticles[i].x - bgParticles[j].x;
+                        const dy = bgParticles[i].y - bgParticles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < 100) {
+                            ctx.beginPath();
+                            ctx.moveTo(bgParticles[i].x, bgParticles[i].y);
+                            ctx.lineTo(bgParticles[j].x, bgParticles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            if (style === 'waves') {
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${lineAlpha})`;
+                ctx.lineWidth = 2;
+
+                bgWaves.forEach(wave => {
+                    wave.phase = (wave.phase || 0) + wave.speed;
+                    ctx.beginPath();
+
+                    for (let x = 0; x < canvas.width; x++) {
+                        const y = wave.y + Math.sin(x * wave.frequency + wave.phase) * wave.amplitude;
+                        if (x === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+
+                    ctx.stroke();
+                });
+            }
+
+            if (style === 'grid') {
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${lineAlpha})`;
+                ctx.lineWidth = 1;
+
+                bgParticles.forEach(p => {
+                    p.x = p.baseX + Math.sin(Date.now() * 0.002 + p.baseY) * 8;
+                    p.y = p.baseY + Math.cos(Date.now() * 0.002 + p.baseX) * 8;
+
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${particleAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                for (let i = 0; i < bgParticles.length; i++) {
+                    for (let j = i + 1; j < bgParticles.length; j++) {
+                        const dx = bgParticles[i].x - bgParticles[j].x;
+                        const dy = bgParticles[i].y - bgParticles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < 65) {
+                            ctx.beginPath();
+                            ctx.moveTo(bgParticles[i].x, bgParticles[i].y);
+                            ctx.lineTo(bgParticles[j].x, bgParticles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            if (style === 'circles') {
+                bgCircles.forEach(circle => {
+                    circle.radius += circle.speed;
+                    if (circle.radius > circle.maxRadius) circle.radius = 40;
+
+                    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${circle.alpha * brightness})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+            }
+        }
+
+        // ===================== API 历史记录 =====================
+        function saveApiToHistory() {
+            const url = appData.config.apiUrl;
+            const key = appData.config.apiKey;
+
+            if (url && !appData.config.apiHistory.urls.includes(url)) {
+                appData.config.apiHistory.urls.unshift(url);
+                if (appData.config.apiHistory.urls.length > 10) {
+                    appData.config.apiHistory.urls.pop();
+                }
+            }
+
+            if (key && !appData.config.apiHistory.keys.includes(key)) {
+                appData.config.apiHistory.keys.unshift(key);
+                if (appData.config.apiHistory.keys.length > 10) {
+                    appData.config.apiHistory.keys.pop();
+                }
+            }
+
+            saveAppData();
+        }
+
+        function bindApiHistoryEvents() {
+            const urlInput = document.getElementById('apiUrl');
+            const keyInput = document.getElementById('apiKeyInput');
+            const urlDropdown = document.getElementById('apiUrlHistory');
+            const keyDropdown = document.getElementById('apiKeyHistory');
+
+            urlInput.addEventListener('focus', () => {
+                renderApiHistoryDropdown(urlDropdown, appData.config.apiHistory.urls, val => {
+                    urlInput.value = val;
+                    urlDropdown.classList.remove('show');
+                });
+                urlDropdown.classList.add('show');
+            });
+
+            keyInput.addEventListener('focus', () => {
+                renderApiHistoryDropdown(keyDropdown, appData.config.apiHistory.keys, val => {
+                    keyInput.value = val;
+                    keyDropdown.classList.remove('show');
+                });
+                keyDropdown.classList.add('show');
+            });
+
+            document.addEventListener('click', e => {
+                if (!e.target.closest('.api-history-wrap')) {
+                    urlDropdown.classList.remove('show');
+                    keyDropdown.classList.remove('show');
+                }
+            });
+        }
+
+        function renderApiHistoryDropdown(container, list, callback) {
+            container.innerHTML = '';
+
+            if (!list.length) {
+                container.innerHTML = '<div class="api-history-item" style="color:var(--text-secondary)">暂无历史记录</div>';
+                return;
+            }
+
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'api-history-item';
+                div.textContent = item.length > 30 ? item.slice(0, 30) + '...' : item;
+                div.title = item;
+                div.onclick = () => callback(item);
+                container.appendChild(div);
+            });
+        }
+
+        // ===================== 模型列表下拉 =====================
+        function bindModelDropdownEvents() {
+            const modelInput = document.getElementById('modelName');
+            const dropdown = document.getElementById('modelDropdown');
+
+            modelInput.addEventListener('click', () => {
+                dropdown.classList.toggle('show');
+            });
+
+            document.addEventListener('click', e => {
+                if (!e.target.closest('.model-select-wrap')) {
+                    dropdown.classList.remove('show');
+                }
+            });
+        }
+
+        async function fetchModelList() {
+            try {
+                const baseUrl = appData.config.apiUrl.replace(/\/$/, '');
+                const res = await fetch(baseUrl + '/models', {
+                    headers: { 'Authorization': 'Bearer ' + appData.config.apiKey }
+                });
+
+                if (!res.ok) throw new Error('获取失败');
+
+                const data = await res.json();
+                const models = data.data.map(m => m.id);
+
+                const dropdown = document.getElementById('modelDropdown');
+                dropdown.innerHTML = '';
+
+                models.forEach(model => {
+                    const item = document.createElement('div');
+                    item.className = 'model-item';
+                    item.textContent = model;
+                    item.onclick = () => {
+                        document.getElementById('modelName').value = model;
+                        dropdown.classList.remove('show');
+                    };
+                    dropdown.appendChild(item);
+                });
+
+                dropdown.classList.add('show');
+            } catch (e) {
+                alert('获取模型列表失败：' + e.message + '\n请先确保API地址和Key正确');
+            }
+        }
+
+        async function testApiConnection() {
+            const btn = event.target;
+            btn.classList.add('loading');
+            btn.textContent = '测试中...';
+
+            try {
+                const baseUrl = appData.config.apiUrl.replace(/\/$/, '');
+                const res = await fetch(baseUrl + '/models', {
+                    headers: { 'Authorization': 'Bearer ' + appData.config.apiKey }
+                });
+
+                if (res.ok) {
+                    alert('✅ API 连通性测试成功！');
+                } else {
+                    alert('❌ 测试失败：状态码 ' + res.status + '\n请检查地址和Key是否正确');
+                }
+            } catch (e) {
+                alert('❌ 测试失败：网络错误或地址无效\n' + e.message);
+            }
+
+            btn.classList.remove('loading');
+            btn.textContent = '🔍 测试 API 连通性';
+        }
+
+        // ===================== 双轨好感度系统 =====================
+        function getEffectiveAffection(baseAffection) {
+            if (appData.config.useManualAffection) {
+                return appData.config.globalManualAffection;
+            }
+            return baseAffection;
+        }
+
+        function updateAffectionFloat() {
+            const floatEl = document.getElementById('affectionFloat');
+
+            if (currentMode !== 'chat' || !appData.config.showAffectionFloat || !appData.config.autoAffection) {
+                floatEl.classList.remove('show');
+                return;
+            }
+
+            const char = appData.characters.find(c => c.id === currentCharId);
+            if (!char) return;
+
+            document.getElementById('floatAffectionVal').value = char.affection;
+            floatEl.classList.add('show');
+        }
+
+        function updateCurrentAffection(val) {
+            if (!currentCharId || !appData.config.autoAffection) return;
+
+            const char = appData.characters.find(c => c.id === currentCharId);
+            if (char) {
+                char.affection = Math.max(0, Math.min(100, parseInt(val) || 0));
+                saveAppData();
+                document.getElementById('currentAffectionVal').value = char.affection;
+            }
+        }
+
+        // ===================== 消息渲染染色修复 =====================
+        function parseMessageHTML(text) {
+            let html = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            html = html.replace(/\/n/g, '</div><div class="msg-newline">');
+            html = html.replace(/（(.*?)）|\((.*?)\)/g, '<span class="msg-action">（$1$2）</span>');
+            html = html.replace(/\{(.*?)\}/g, '<span class="msg-mind">{$1}</span>');
+            html = html.replace(/【(.*?)】/g, '<span class="msg-emotion">【$1】</span>');
+
+            return '<div>' + html + '</div>';
+        }
+
+        function parseNovelMessageHTML(text) {
+            let html = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            html = html.replace(/\{\/s\}([\s\S]*?)\{\/s\}/g, '<span class="novel-speech">$1</span>');
+            html = html.replace(/\{\/e\}([\s\S]*?)\{\/e\}/g, '<span class="novel-emote">$1</span>');
+            html = html.replace(/\n/g, '<br>');
+
+            return html;
+        }
+
+        function appendChatMessage(text, role, charName, charAvatar) {
+            const row = document.createElement('div');
+            row.className = 'msg-row ' + role;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'msg-avatar';
+
+            if (role === 'user') {
+                avatar.textContent = '你';
+            } else if (charAvatar) {
+                avatar.style.backgroundImage = 'url(' + charAvatar + ')';
+            } else {
+                avatar.textContent = charName ? charName.charAt(0) : 'AI';
+            }
+
+            const body = document.createElement('div');
+            body.className = 'msg-body';
+
+            const name = document.createElement('div');
+            name.className = 'msg-name';
+            name.textContent = role === 'user' ? '你' : charName;
+
+            const msg = document.createElement('div');
+            msg.className = 'message ' + role;
+            msg.innerHTML = parseMessageHTML(text);
+
+            body.appendChild(name);
+            body.appendChild(msg);
+            row.appendChild(avatar);
+            row.appendChild(body);
+
+            document.getElementById('chatBox').appendChild(row);
+            document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+
+            return msg;
+        }
+
+        function appendNovelScene(text) {
+            const div = document.createElement('div');
+            div.className = 'novel-scene';
+            div.innerText = text;
+            document.getElementById('chatBox').appendChild(div);
+            document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+            return div;
+        }
+
+        function appendNovelNarration(text) {
+            const div = document.createElement('div');
+            div.className = 'novel-narration';
+            div.innerHTML = parseNovelMessageHTML(text);
+            document.getElementById('chatBox').appendChild(div);
+            document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+            return div;
+        }
+        // ===================== 预设世界观渲染 =====================
+        function renderPresetWorlds() {
+            const grid = document.getElementById('presetGrid');
+            grid.innerHTML = '';
+
+            WORLD_TYPES.forEach((w, i) => {
+                const item = document.createElement('div');
+                item.className = 'preset-world-item';
+                item.innerHTML = `
+                    <div class="preset-world-name">${w.name}</div>
+                    <div class="preset-world-tags">${w.tags.join(' · ')}</div>
+                `;
+                item.onclick = () => {
+                    document.getElementById('customWorldName').value = w.name;
+                    document.getElementById('customWorldDesc').value = w.desc;
+                    document.querySelectorAll('.preset-world-item').forEach((el, idx) => {
+                        el.style.borderColor = idx === i ? 'var(--primary-color)' : 'var(--border-color)';
+                        el.style.background = idx === i ? 'var(--primary-light)' : 'var(--card-bg)';
+                    });
+                };
+                grid.appendChild(item);
+            });
+        }
+
+        // ===================== 小说风格切换 =====================
+        let currentNovelStyle = 'normal';
+
+        function switchNovelStyle(style) {
+            currentNovelStyle = style;
+            document.querySelectorAll('.novel-tab').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.novel-tab[onclick="switchNovelStyle('${style}')"]`).classList.add('active');
+        }
+
+        // ===================== 存档系统 =====================
+        function renderSaveList() {
+            const container = document.getElementById('saveList');
+            if (!appData.novelSaves || appData.novelSaves.length === 0) {
+                container.innerHTML = '<div class="empty-tip">暂无存档，开始剧情后会自动保存</div>';
+                return;
+            }
+            container.innerHTML = '';
+            [...appData.novelSaves].reverse().forEach(save => {
+                const item = document.createElement('div');
+                item.className = 'save-item';
+                const date = new Date(save.updateTime).toLocaleString();
+                item.innerHTML = `
+                    <div class="save-info">
+                        <div class="save-name">${save.worldName} · 第 ${save.round} 幕 · ${save.style === 'web' ? '短剧爽文' : '经典叙事'}</div>
+                        <div class="save-meta">更新时间：${date}</div>
+                    </div>
+                    <div class="save-actions">
+                        <button class="save-btn primary" onclick="loadNovelSave('${save.id}')">读取</button>
+                        <button class="save-btn danger" onclick="deleteNovelSave('${save.id}')">删除</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function saveNovelProgress() {
+            if (!novelState.worldType) return;
+            const saveData = {
+                id: novelState.saveId || generateId(),
+                worldName: novelState.worldType.name,
+                worldType: novelState.worldType,
+                npcs: novelState.npcs,
+                storyHistory: novelState.storyHistory,
+                round: novelState.round,
+                summaries: novelState.summaries,
+                style: currentNovelStyle,
+                updateTime: Date.now()
+            };
+            if (!novelState.saveId) {
+                novelState.saveId = saveData.id;
+                appData.novelSaves.push(saveData);
+            } else {
+                const idx = appData.novelSaves.findIndex(s => s.id === novelState.saveId);
+                if (idx >= 0) appData.novelSaves[idx] = saveData;
+            }
+            saveAppData();
+        }
+
+        function loadNovelSave(id) {
+            const save = appData.novelSaves.find(s => s.id === id);
+            if (!save) return;
+            currentNovelStyle = save.style || 'normal';
+            novelState = {
+                saveId: save.id,
+                worldType: save.worldType,
+                npcs: save.npcs,
+                storyHistory: save.storyHistory,
+                round: save.round,
+                summaries: save.summaries || { short: [], long: '' }
+            };
+            document.getElementById('worldCreatePage').classList.remove('show');
+            document.getElementById('appMain').classList.add('show');
+            initNovelUI();
+            renderNovelFromHistory();
+            updateNovelPanel();
+        }
+
+        function deleteNovelSave(id) {
+            if (!confirm('确定删除这个存档吗？')) return;
+            appData.novelSaves = appData.novelSaves.filter(s => s.id !== id);
+            saveAppData();
+            renderSaveList();
+        }
+
+        function renderNovelFromHistory() {
+            const box = document.getElementById('chatBox');
+            box.innerHTML = '';
+            appendNovelScene(`—— ${novelState.worldType.name} · 第 ${novelState.round} 幕 ——`);
+            novelState.storyHistory.forEach(msg => {
+                if (msg.role === 'user') appendChatMessage(msg.content, 'user');
+                else appendNovelNarration(msg.content);
+            });
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // ===================== 模式跳转 =====================
+        function enterChatMode() {
+            currentMode = 'chat';
+            document.getElementById('modeSelectPage').style.display = 'none';
+            document.getElementById('worldCreatePage').classList.remove('show');
+            document.getElementById('appMain').classList.add('show');
+            document.getElementById('chatSidebar').style.display = 'flex';
+            document.getElementById('hamburgerBtn').style.display = '';
+            document.getElementById('novelCharBtn').style.display = 'none';
+            document.getElementById('refreshNovelBtn').style.display = 'none';
+            document.getElementById('actionBar').style.display = 'none';
+            document.getElementById('topTitle').textContent = 'AI 幻想乡';
+            document.getElementById('topSubtitle').textContent = '聊天模式';
+            document.getElementById('msgInput').placeholder = '输入你想说的话...';
+            document.getElementById('chatBox').innerHTML = '';
+            renderCharacterList();
+            updateAffectionFloat();
+        }
+
+        function enterNovelMode() {
+            currentMode = 'novel';
+            document.getElementById('modeSelectPage').style.display = 'none';
+            document.getElementById('worldCreatePage').classList.add('show');
+            selectCreateType('random');
+            renderSaveList();
+        }
+
+        function backToModeSelect() {
+            if (currentMode === 'novel' && novelState.storyHistory.length > 0) {
+                saveNovelProgress();
+            }
+            document.getElementById('appMain').classList.remove('show');
+            document.getElementById('worldCreatePage').classList.remove('show');
+            document.getElementById('novelCharPanel').classList.remove('open');
+            document.getElementById('affectionFloat').classList.remove('show');
+            document.getElementById('modeSelectPage').style.display = 'flex';
+            currentMode = null;
+        }
+
+        // ===================== 世界创建 =====================
+        function selectCreateType(type) {
+            createType = type;
+            document.querySelectorAll('.create-option-card').forEach(el => el.classList.remove('active'));
+            document.getElementById('opt-' + type).classList.add('active');
+
+            document.getElementById('presetWorldList').classList.toggle('show', type === 'world');
+            document.getElementById('customWorldForm').classList.toggle('show', type === 'world');
+            document.getElementById('customCharForm').classList.toggle('show', type === 'char');
+        }
+
+        function confirmCreateWorld() {
+            if (!appData.config.apiKey) { alert('请先在设置中配置API Key'); return; }
+            document.getElementById('worldCreatePage').classList.remove('show');
+            document.getElementById('appMain').classList.add('show');
+            initNovelUI();
+            generateNovelWorld(createType);
+        }
+
+        function initNovelUI() {
+            document.getElementById('chatSidebar').style.display = 'none';
+            document.getElementById('hamburgerBtn').style.display = 'none';
+            document.getElementById('novelCharBtn').style.display = 'flex';
+            document.getElementById('refreshNovelBtn').style.display = 'flex';
+            document.getElementById('actionBar').style.display = 'flex';
+            document.getElementById('topTitle').textContent = '网络小说模式';
+            document.getElementById('topSubtitle').textContent = currentNovelStyle === 'web' ? '短剧爽文风' : '经典叙事风';
+            document.getElementById('msgInput').placeholder = '描述你的行动、选择或对话...';
+            document.getElementById('chatBox').innerHTML = '';
+        }
+
+        function randomPick(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function generateNPC(customName, customIdentity) {
+            const gender = randomPick(['male', 'female', 'neutral']);
+            const name = customName || randomPick(NAME_POOL[gender]);
+            const identity = customIdentity || randomPick(IDENTITY_POOL);
+            const personality = randomPick(PERSONALITY_POOL);
+            const relation = randomPick(["青梅竹马", "天降同桌", "职场上司", "敌对对手", "神秘盟友", "旧识重逢", "契约对象", "白月光"]);
+            return {
+                id: generateId(),
+                name, identity, personality, relation,
+                favor: Math.floor(Math.random() * 40) + 30
+            };
+        }
+
+        function generateNovelWorld(type) {
+            novelState = {
+                saveId: null,
+                worldType: null,
+                npcs: [],
+                storyHistory: [],
+                round: 0,
+                summaries: { short: [], long: '' }
+            };
+
+            if (type === 'random' || type === 'char') {
+                novelState.worldType = randomPick(WORLD_TYPES);
+            } else if (type === 'world') {
+                const name = document.getElementById('customWorldName').value.trim() || '自定义世界';
+                const desc = document.getElementById('customWorldDesc').value.trim() || '一个充满未知的世界';
+                novelState.worldType = { name, desc, tags: ['自定义'] };
+            }
+
+            if (type === 'char') {
+                const npcText = document.getElementById('customNPCList').value.trim();
+                if (npcText) {
+                    npcText.split('\n').filter(l => l.trim()).forEach(line => {
+                        const parts = line.trim().split(/\s+/);
+                        novelState.npcs.push(generateNPC(parts[0], parts[1]));
+                    });
+                }
+                while (novelState.npcs.length < 3) {
+                    novelState.npcs.push(generateNPC());
+                }
+            } else {
+                const npcCount = Math.floor(Math.random() * 2) + 3;
+                for (let i = 0; i < npcCount; i++) {
+                    novelState.npcs.push(generateNPC());
+                }
+            }
+
+            updateNovelPanel();
+            document.getElementById('topSubtitle').textContent = novelState.worldType.name + (currentNovelStyle === 'web' ? ' · 短剧爽文' : '');
+            appendNovelScene(`—— ${novelState.worldType.name} · 第 1 幕 ——`);
+
+            const styleRule = currentNovelStyle === 'web'
+                ? `【网络短剧爽文风格强制要求】
+1. 开篇直接进入核心冲突/相遇，零铺垫，前三句必须有钩子；
+2. 节奏极快，每段剧情都有反转、打脸、拉扯、升温，绝不拖沓；
+3. 人物标签鲜明，情绪外放，对话有张力，暧昧调情拉满；
+4. 人际关系复杂：白月光、情敌、契约、误会、追妻火葬场要素拉满；
+5. 结尾必须留悬念/反转/情感暴击，让人想立刻看下一章。`
+                : `【经典叙事风格】
+1. 循序渐进，注重环境氛围与人物心理刻画；
+2. 剧情稳步推进，伏笔自然埋藏；
+3. 人物成长弧光清晰，情感发展符合逻辑。`;
+
+            const openingPrompt = buildNovelSystemPrompt() + `
+${styleRule}
+请生成开篇剧情，人物对话用{/s}包裹，神态动作描写用{/e}包裹，叙述正常书写。
+引出至少2位主要角色，立刻制造第一个剧情冲突和选择点。`;
+
+            const aiDiv = appendNovelNarration('正在构建世界...');
+            callAI([{ role: 'system', content: openingPrompt }], function(content) {
+                aiDiv.innerHTML = parseNovelMessageHTML(content);
+                novelState.storyHistory.push({ role: 'assistant', content });
+                novelState.round = 1;
+                saveNovelProgress();
+            });
+        }
+
+        function updateNovelPanel() {
+            const list = document.getElementById('npcList');
+            list.innerHTML = '';
+            novelState.npcs.forEach(function(npc) {
+                const card = document.createElement('div');
+                card.className = 'npc-card';
+                card.innerHTML = `
+                    <div class="npc-name">${npc.name}</div>
+                    <div class="npc-info">
+                        身份：${npc.identity}<br>
+                        性格：${npc.personality}<br>
+                        关系：${npc.relation}<br>
+                        好感度：${npc.favor}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+            document.getElementById('worldSetting').textContent = novelState.worldType.desc;
+        }
+
+        // ===================== 小说系统提示词 =====================
+        function buildNovelSystemPrompt() {
+            const npcDesc = novelState.npcs.map(function(n, i) {
+                return `角色${i+1}：${n.name}，身份${n.identity}，性格${n.personality}，与主角关系${n.relation}，当前好感度${n.favor}。`;
+            }).join('\n');
+
+            return `你是「网络小说剧情推演系统」，正在运行【${novelState.worldType.name}】世界观。
+# 核心设定
+1. 世界观背景：${novelState.worldType.desc}
+2. 登场角色：
+${npcDesc}
+
+# 格式强制规则
+- 人物对话必须用 {/s}对话内容{/s} 包裹
+- 神态、动作、微表情描写必须用 {/e}描写内容{/e} 包裹
+- 正常叙述、心理活动不用包裹
+- 分段清晰，换行自然
+
+# 剧情规则
+1. 第三人称有限视角，聚焦主角经历与感受；
+2. 明暗双线并行，表面剧情+人物隐藏心思/伏笔；
+3. 严格贴合角色人设与好感度，好感度越高越亲近；
+4. 每轮结尾留下明确剧情选择空间；
+5. 情感拉扯、人际关系复杂多变。
+${appData.config.allowNsfw ? '可根据剧情发展描写暧昧调情与成人向内容。' : '保持健康剧情。'}`;
+        }
+
+        // ===================== 三档行动建议 =====================
+        function generateActionSuggestion(style) {
+            if (isProcessing || !novelState.storyHistory.length) return;
+
+            const btnId = 'btn' + style.charAt(0).toUpperCase() + style.slice(1);
+            const btn = document.getElementById(btnId);
+            const originalText = btn.textContent;
+            btn.classList.add('loading');
+            btn.textContent = '生成中...';
+
+            const styleMap = {
+                radical: '激进主动：主动出击、强势进攻、大胆告白/挑衅、高风险高回报，拉扯感强',
+                neutral: '中立稳妥：观察试探、旁敲侧击、循序渐进、稳扎稳打、保留余地',
+                conservative: '保守退缩：回避退让、婉拒拖延、暗中调查、以退为进、降低风险'
+            };
+
+            const prompt = `基于当前剧情，给出一个${styleMap[style]}风格的行动选项，第一人称主角视角，简短有力，25字以内，直接给行动内容。`;
+
+            const messages = [
+                { role: 'system', content: buildNovelSystemPrompt() },
+                ...novelState.storyHistory.slice(-6),
+                { role: 'user', content: prompt }
+            ];
+
+            callAI(messages, function(content) {
+                document.getElementById('msgInput').value = content.replace(/["“”]/g, '').trim();
+                btn.classList.remove('loading');
+                btn.textContent = originalText;
+            });
+        }
+
+        // ===================== 语音输入 =====================
+        function toggleVoiceInput() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert('当前浏览器不支持语音识别，请使用Chrome或Edge浏览器');
+                return;
+            }
+            if (isRecording) {
+                if (recognition) recognition.stop();
+                isRecording = false;
+                document.getElementById('voiceBtn').classList.remove('recording');
+                return;
+            }
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SR();
+            recognition.lang = 'zh-CN';
+            recognition.interimResults = false;
+
+            recognition.onstart = function() {
+                isRecording = true;
+                document.getElementById('voiceBtn').classList.add('recording');
+            };
+            recognition.onresult = function(e) {
+                document.getElementById('msgInput').value = e.results[0][0].transcript;
+            };
+            recognition.onend = function() {
+                isRecording = false;
+                document.getElementById('voiceBtn').classList.remove('recording');
+            };
+            recognition.onerror = function() {
+                isRecording = false;
+                document.getElementById('voiceBtn').classList.remove('recording');
+            };
+            recognition.start();
+        }
+
+        // ===================== 剧情总结机制 =====================
+        function checkAndGenerateSummary() {
+            const r = novelState.round;
+            const shortGap = appData.config.summaryShortRound;
+            const longGap = appData.config.summaryLongRound;
+
+            if (r > 0 && r % longGap === 0) {
+                generateLongSummary();
+            } else if (r > 0 && r % shortGap === 0) {
+                generateShortSummary();
+            }
+        }
+
+        function generateShortSummary() {
+            const recent = novelState.storyHistory.slice(-8);
+            const prompt = `用80-120字总结最近的剧情，保留关键事件、人物关系变化、伏笔、好感度变动，语言凝练。`;
+            callAI([{ role: 'system', content: prompt }, ...recent], function(summary) {
+                novelState.summaries.short.push({
+                    round: novelState.round,
+                    content: summary.trim()
+                });
+                saveNovelProgress();
+            });
+        }
+
+        function generateLongSummary() {
+            const shortSummaries = novelState.summaries.short.map(s => s.content).join('\n');
+            const prompt = `基于剧情分段小结，生成300字左右完整剧情总览，梳理主线、人物关系、核心伏笔与情感线，结构化清晰。`;
+            callAI([{ role: 'system', content: prompt + '\n\n已有小结：\n' + shortSummaries }, ...novelState.storyHistory.slice(-20)], function(summary) {
+                novelState.summaries.long = summary.trim();
+                novelState.summaries.short = [];
+                saveNovelProgress();
+            });
+        }
+
+        // ===================== AI 调用 =====================
+        async function callAIStream(messages, outputDiv, callback) {
+            try {
+                const baseUrl = appData.config.apiUrl.replace(/\/$/, '');
+                const res = await fetch(baseUrl + '/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + appData.config.apiKey
+                    },
+                    body: JSON.stringify({
+                        model: appData.config.model,
+                        messages: messages,
+                        stream: true
+                    })
+                });
+
+                if (!res.ok) throw new Error('请求失败: ' + res.status);
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let full = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n').filter(l => l.trim());
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                            try {
+                                const json = JSON.parse(line.slice(6));
+                                const delta = json.choices[0].delta;
+                                if (delta.content) {
+                                    full += delta.content;
+                                    const isNovel = currentMode === 'novel';
+                                    outputDiv.innerHTML = isNovel
+                                        ? parseNovelMessageHTML(full + '▌')
+                                        : parseMessageHTML(full + '▌');
+                                    document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                }
+
+                const isNovel = currentMode === 'novel';
+                outputDiv.innerHTML = isNovel ? parseNovelMessageHTML(full) : parseMessageHTML(full);
+                document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+                if (callback) callback(full);
+            } catch(e) {
+                outputDiv.innerHTML = '❌ 请求失败：' + e.message;
+                isProcessing = false;
+                document.getElementById('sendBtn').disabled = false;
+            }
+        }
+
+        async function callAI(messages, callback) {
+            try {
+                const baseUrl = appData.config.apiUrl.replace(/\/$/, '');
+                const res = await fetch(baseUrl + '/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + appData.config.apiKey
+                    },
+                    body: JSON.stringify({
+                        model: appData.config.model,
+                        messages: messages,
+                        stream: false
+                    })
+                });
+                const data = await res.json();
+                const content = data.choices && data.choices[0] ? data.choices[0].message.content : '';
+                if (callback) callback(content);
+            } catch(e) {
+                if (callback) callback('❌ 请求失败，请检查API配置');
+            }
+        }
+
+        // ===================== 文件图片上传 =====================
+        function handleFileUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64 = e.target.result;
+                    appendImageMessage(base64, file.name);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    appendFileMessage(file.name, text);
+                };
+                reader.readAsText(file);
+            }
+            input.value = '';
+        }
+
+        function appendImageMessage(base64, fileName) {
+            const row = document.createElement('div');
+            row.className = 'msg-row user';
+            row.innerHTML = `
+                <div class="msg-avatar">你</div>
+                <div class="msg-body">
+                    <div class="msg-name">你</div>
+                    <div class="message user">
+                        <div>📷 已发送图片：${fileName}</div>
+                        <img src="${base64}" class="image-preview" alt="上传图片">
+                    </div>
+                </div>
+            `;
+            document.getElementById('chatBox').appendChild(row);
+            document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+
+            currentMessages.push({
+                role: 'user',
+                content: `[用户发送了一张图片，文件名：${fileName}，请基于图片内容进行回复。图片数据已包含在上下文中。]`
+            });
+        }
+
+        function appendFileMessage(fileName, content) {
+            const preview = content.length > 500 ? content.slice(0, 500) + '...' : content;
+            const row = document.createElement('div');
+            row.className = 'msg-row user';
+            row.innerHTML = `
+                <div class="msg-avatar">你</div>
+                <div class="msg-body">
+                    <div class="msg-name">你</div>
+                    <div class="message user">
+                        <div>📄 已发送文件：${fileName}</div>
+                        <div style="font-size:12px; opacity:0.8; margin-top:4px;">${preview.replace(/</g, '&lt;')}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('chatBox').appendChild(row);
+            document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+
+            currentMessages.push({
+                role: 'user',
+                content: `[用户发送了文件：${fileName}，文件内容如下：\n${content}\n请基于文件内容进行回复。]`
+            });
+        }
+
+        // ===================== 聊天模式逻辑 =====================
+        function sendChatMessage() {
+            const txt = document.getElementById('msgInput').value.trim();
+            if (!txt || isProcessing || !currentCharId) return;
+            if (!appData.config.apiKey) { alert('请先配置API Key'); return; }
+
+            isProcessing = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('msgInput').value = '';
+
+            const userMsg = { role: 'user', content: txt };
+            currentMessages.push(userMsg);
+            appendChatMessage(txt, 'user');
+
+            const char = appData.characters.find(c => c.id === currentCharId);
+            const effectiveAff = getEffectiveAffection(char.affection);
+            const systemPrompt = `你现在完全扮演角色【${char.name}】，角色设定原文：${char.prompt}
+# 硬性规则
+1. 回复至少3段，禁止短句敷衍；
+2. 强制三层描写：动作（）、心理{}、情绪【】缺一不可；
+3. 使用 /n 分段，对话占3成，细节描写占7成；
+4. 当前好感度 ${effectiveAff}，数值越高态度越亲近黏人，越低越疏离戒备；
+5. 严格贴合人设，禁止OOC。
+${appData.config.allowMultiline ? '全程使用/n分段' : '单段输出'}
+${appData.config.allowNsfw ? '可适度描写亲密内容' : '保持健康交流'}`;
+
+            const msgs = [{ role: 'system', content: systemPrompt }, ...currentMessages];
+            const aiDiv = appendChatMessage('▌', 'ai', char.name, char.avatar);
+
+            callAIStream(msgs, aiDiv, function(full) {
+                currentMessages.push({ role: 'assistant', content: full });
+                saveChatHistory(currentCharId);
+                isProcessing = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('msgInput').focus();
+            });
+        }
+
+        function renderCharacterList() {
+            const container = document.getElementById('characterList');
+            container.innerHTML = '';
+            const groups = {};
+            let cardIndex = 0;
+
+            appData.characters.forEach(function(char) {
+                if (!groups[char.category]) groups[char.category] = [];
+                groups[char.category].push(char);
+            });
+
+            for (const cat in groups) {
+                const div = document.createElement('div');
+                div.className = 'category-title';
+                div.innerText = '📁 ' + cat;
+                container.appendChild(div);
+
+                groups[cat].forEach(function(c) {
+                    const card = document.createElement('div');
+                    card.className = 'character-card' + (currentCharId === c.id ? ' active' : '');
+                    card.style.animationDelay = (cardIndex * 0.04) + 's';
+                    cardIndex++;
+
+                    const avatarHtml = c.avatar
+                        ? '<div class="char-avatar" style="background-image: url(' + c.avatar + ')"></div>'
+                        : '<div class="char-avatar">' + c.name.charAt(0) + '</div>';
+
+                    card.innerHTML = avatarHtml + '<div class="char-name">' + c.name + '</div>';
+                    card.onclick = function() { switchCharacter(c.id, card); };
+                    container.appendChild(card);
+                });
+            }
+
+            if (!currentCharId && appData.characters.length > 0) {
+                currentCharId = appData.characters[0].id;
+                loadChatHistory(currentCharId);
+            }
+        }
+
+        function switchCharacter(id, el) {
+            if (currentCharId) saveChatHistory(currentCharId);
+            currentCharId = id;
+            document.querySelectorAll('.character-card').forEach(e => e.classList.remove('active'));
+            if (el) el.classList.add('active');
+            document.getElementById('chatBox').innerHTML = '';
+            loadChatHistory(id);
+            closeSidebar();
+            updateAffectionFloat();
+
+            const char = appData.characters.find(c => c.id === id);
+            if (char) document.getElementById('currentAffectionVal').value = char.affection;
+        }
+
+        function saveChatHistory(id) {
+            if (currentMessages.length) {
+                appData.histories[id] = [...currentMessages];
+                saveAppData();
+            }
+        }
+
+        function loadChatHistory(id) {
+            const box = document.getElementById('chatBox');
+            box.innerHTML = '';
+            currentMessages = appData.histories[id] ? [...appData.histories[id]] : [];
+
+            if (currentMessages.length > 0) {
+                const char = appData.characters.find(x => x.id === id);
+                currentMessages.forEach(function(m) {
+                    appendChatMessage(m.content, m.role, char ? char.name : '', char ? char.avatar : '');
+                });
+            } else {
+                const c = appData.characters.find(x => x.id === id);
+                if (c) {
+                    const welcome = `（抬眼看向你，唇角噙着浅淡笑意）你好，我是${c.name}。{心里有些期待和你聊聊}【温和从容】/n有什么想对我说的，都可以讲。`;
+                    appendChatMessage(welcome, 'ai', c.name, c.avatar);
+                    currentMessages = [{ role: 'assistant', content: welcome }];
+                }
+            }
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // ===================== 小说模式发送 =====================
+        function novelSendAction() {
+            const txt = document.getElementById('msgInput').value.trim();
+            if (!txt || isProcessing) return;
+            if (!appData.config.apiKey) { alert('请先配置API Key'); return; }
+
+            isProcessing = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('msgInput').value = '';
+
+            appendChatMessage(txt, 'user');
+            novelState.storyHistory.push({ role: 'user', content: txt });
+
+            const systemPrompt = buildNovelSystemPrompt();
+            let historyMsgs = [];
+
+            if (novelState.summaries.long && novelState.storyHistory.length > 12) {
+                historyMsgs.push({ role: 'system', content: '【剧情背景总览】' + novelState.summaries.long });
+                historyMsgs.push(...novelState.storyHistory.slice(-10));
+            } else {
+                historyMsgs = novelState.storyHistory.slice(-14);
+            }
+
+            const msgs = [
+                { role: 'system', content: systemPrompt },
+                ...historyMsgs
+            ];
+
+            const aiDiv = appendNovelNarration('▌');
+            callAIStream(msgs, aiDiv, function(full) {
+                novelState.storyHistory.push({ role: 'assistant', content: full });
+                novelState.round++;
+
+                setTimeout(checkAndGenerateSummary, 800);
+                saveNovelProgress();
+
+                appendNovelScene(`—— 第 ${novelState.round + 1} 幕 ——`);
+                isProcessing = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('msgInput').focus();
+            });
+        }
+
+        // ===================== UI 交互事件 =====================
+        function closeSidebar() {
+            document.getElementById('chatSidebar').classList.remove('open');
+        }
+
+        document.getElementById('hamburgerBtn').onclick = function() {
+            document.getElementById('chatSidebar').classList.toggle('open');
+        };
+
+        document.getElementById('novelCharBtn').onclick = function() {
+            document.getElementById('novelCharPanel').classList.toggle('open');
+        };
+
+        document.getElementById('refreshNovelBtn').onclick = function() {
+            if (novelState.storyHistory.length > 0) saveNovelProgress();
+            document.getElementById('chatBox').innerHTML = '';
+            document.getElementById('appMain').classList.remove('show');
+            document.getElementById('novelCharPanel').classList.remove('open');
+            document.getElementById('worldCreatePage').classList.add('show');
+            renderSaveList();
+        };
+
+        document.getElementById('chatBox').onclick = function() {
+            closeSidebar();
+            document.getElementById('novelCharPanel').classList.remove('open');
+        };
+
+        // ===================== 设置面板 =====================
+        function openSettings() {
+            applyAllCustomSettings();
+            switchSettingsTab('api');
+            document.getElementById('settingsOverlay').classList.add('show');
+            document.getElementById('settingsModal').classList.add('show');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsOverlay').classList.remove('show');
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        document.getElementById('settingsBtn').onclick = openSettings;
+        document.getElementById('settingsOverlay').onclick = closeSettings;
+
+        document.getElementById('saveAllConfigBtn').onclick = function() {
+            const cfg = appData.config;
+            cfg.apiUrl = document.getElementById('apiUrl').value.trim();
+            cfg.apiKey = document.getElementById('apiKeyInput').value.trim();
+            cfg.model = document.getElementById('modelName').value.trim();
+            cfg.autoAffection = document.getElementById('autoAffectionToggle').checked;
+            cfg.showAffectionFloat = document.getElementById('showAffectionFloat').checked;
+            cfg.globalManualAffection = parseInt(document.getElementById('globalManualAffection').value) || 50;
+            cfg.useManualAffection = document.getElementById('useManualAffection').checked;
+            cfg.theme = document.getElementById('themeToggle').checked ? 'dark' : 'light';
+            cfg.allowMultiline = document.getElementById('allowMultiline').checked;
+            cfg.allowNsfw = document.getElementById('allowNsfw').checked;
+            cfg.bgOverlay = parseFloat(document.getElementById('bgOverlayRange').value);
+            cfg.primaryColor = document.getElementById('primaryColorInput').value;
+            cfg.bubbleUserColor = document.getElementById('bubbleUserColor').value;
+            cfg.bubbleAiColor = document.getElementById('bubbleAiColor').value;
+            cfg.novelSpeechColor = document.getElementById('novelSpeechColor').value;
+            cfg.novelEmoteColor = document.getElementById('novelEmoteColor').value;
+            cfg.novelTextColor = document.getElementById('novelTextColor').value;
+            cfg.borderRadius = parseInt(document.getElementById('borderRadiusRange').value);
+            cfg.fontSize = parseInt(document.getElementById('fontSizeRange').value);
+            cfg.disableAnimation = document.getElementById('disableAnimToggle').checked;
+            cfg.chatBgCanvasEnabled = document.getElementById('chatBgCanvasToggle').checked;
+            cfg.bgGeometryStyle = document.getElementById('bgGeometryStyle').value;
+            cfg.bgLineBrightness = parseFloat(document.getElementById('bgLineBrightness').value);
+
+            saveApiToHistory();
+            saveAppData();
+            applyAllCustomSettings();
+            restartGeometryAnimation();
+            closeSettings();
+        };
+
+        // 实时预览
+        ['primaryColorInput', 'bubbleUserColor', 'bubbleAiColor', 'novelSpeechColor', 'novelEmoteColor', 'novelTextColor'].forEach(function(id) {
+            document.getElementById(id).addEventListener('input', function() {
+                const root = document.documentElement;
+                const map = {
+                    primaryColorInput: '--primary-color',
+                    bubbleUserColor: '--bubble-user-bg',
+                    bubbleAiColor: '--bubble-ai-bg',
+                    novelSpeechColor: '--novel-speech-color',
+                    novelEmoteColor: '--novel-emote-color',
+                    novelTextColor: '--novel-text-color'
+                };
+                root.style.setProperty(map[id], this.value);
+            });
+        });
+
+        ['borderRadiusRange', 'fontSizeRange', 'bgOverlayRange'].forEach(function(id) {
+            document.getElementById(id).addEventListener('input', function() {
+                const root = document.documentElement;
+                const map = {
+                    borderRadiusRange: ['--global-radius', 'px'],
+                    fontSizeRange: ['--font-base', 'px'],
+                    bgOverlayRange: ['--bg-overlay-opacity', '']
+                };
+                root.style.setProperty(map[id][0], this.value + map[id][1]);
+            });
+        });
+
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            document.body.classList.toggle('dark-mode', this.checked);
+            if (!appData.config.disableAnimation) drawGeometryFrame();
+        });
+
+        document.getElementById('chatBgCanvasToggle').addEventListener('change', function() {
+            document.body.classList.toggle('bg-canvas-hidden', !this.checked);
+        });
+
+        document.getElementById('bgGeometryStyle').addEventListener('change', function() {
+            appData.config.bgGeometryStyle = this.value;
+            restartGeometryAnimation();
+        });
+
+        // ===================== 图片上传 =====================
+        document.getElementById('bgImageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                appData.config.bgImage = ev.target.result;
+                document.documentElement.style.setProperty('--bg-image', `url(${ev.target.result})`);
+                saveAppData();
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('avatarInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file || !currentCharId) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const char = appData.characters.find(c => c.id === currentCharId);
+                if (char) {
+                    char.avatar = ev.target.result;
+                    saveAppData();
+                    renderCharacterList();
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function resetCurrentAvatar() {
+            if (!currentCharId) return;
+            if (!confirm('确定重置当前角色头像吗？')) return;
+            const char = appData.characters.find(c => c.id === currentCharId);
+            if (char) {
+                char.avatar = '';
+                saveAppData();
+                renderCharacterList();
+            }
+        }
+
+        // ===================== 数据导出导入 =====================
+        function exportAllData() {
+            if (currentMode === 'chat' && currentCharId) saveChatHistory(currentCharId);
+            if (currentMode === 'novel') saveNovelProgress();
+            
+            const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'AI幻想乡_全量数据备份_' + new Date().toISOString().slice(0,10) + '.json';
+            a.click();
+        }
+
+        document.getElementById('importFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) {
+                this.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (!data.characters) throw new Error('文件格式不正确');
+                    appData.config = { ...appData.config, ...data.config };
+                    appData.characters = data.characters || [];
+                    appData.histories = data.histories || {};
+                    appData.novelSaves = data.novelSaves || [];
+                    saveAppData();
+                    applyAllCustomSettings();
+                    if (currentMode === 'chat') renderCharacterList();
+                    if (currentMode === 'novel') renderSaveList();
+                    alert('✅ 导入成功！所有配置、角色、记录已还原');
+                } catch(err) {
+                    alert('❌ 解析失败：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            this.value = '';
+        });
+
+        function resetAndReload() {
+            if (!confirm('确定清除所有本地数据吗？此操作不可恢复！')) return;
+            localStorage.removeItem('ai_fantasy_land_v3');
+            location.reload();
+        }
+
+        // ===================== 添加角色 =====================
+        function openAddCharacterModal() {
+            const name = prompt('请输入角色名称：');
+            if (!name) return;
+            const category = prompt('请输入分类：', '自定义') || '自定义';
+            const promptText = prompt('请输入角色设定提示词：');
+            if (!promptText) return;
+            const aff = Number(prompt('初始好感度(0-100)：', '50')) || 50;
+            appData.characters.push({
+                id: generateId(),
+                category, name,
+                prompt: promptText,
+                affection: aff,
+                avatar: ''
+            });
+            saveAppData();
+            renderCharacterList();
+        }
+
+        // ===================== 发送按钮绑定 =====================
+        document.getElementById('sendBtn').addEventListener('click', function() {
+            if (currentMode === 'chat') sendChatMessage();
+            else if (currentMode === 'novel') novelSendAction();
+        });
+
+        document.getElementById('msgInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (currentMode === 'chat') sendChatMessage();
+                else if (currentMode === 'novel') novelSendAction();
+            }
+        });
+
+        // 输入框自动高度
+        document.getElementById('msgInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // ===================== 启动 =====================
+        loadAppData();
+    </script>
+</body>
+</html>
